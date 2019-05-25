@@ -53,12 +53,15 @@ class TwitterMapVisualizationActivity : AppCompatActivity(), OnMapReadyCallback,
 
     override fun onLocationChanged(location: Location?) {
         if (location != null) {
-            googleMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                    LatLng(location.latitude, location.longitude),
-                    10f
-            ))
+            val latLng = LatLng(location.latitude, location.longitude)
+            updateTweets(latLng)
+            googleMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 5f))
             locationManager.removeUpdates(this)
         }
+    }
+
+    private fun updateTweets(latLng: LatLng) {
+
     }
 
     override fun onProviderEnabled(provider: String?) {}
