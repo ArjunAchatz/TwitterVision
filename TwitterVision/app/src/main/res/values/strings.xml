@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">TwitterVision</string>
+    <string name="title_activity_twitter_map_visualization">Map</string>
 </resources>
