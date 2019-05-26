@@ -16,10 +16,19 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AlertDialog
+import android.util.Log
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.CameraUpdate
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
+import com.twitter.sdk.android.core.Callback
+import com.twitter.sdk.android.core.Result
+import com.twitter.sdk.android.core.TwitterApiClient
+import com.twitter.sdk.android.core.TwitterException
+import com.twitter.sdk.android.core.models.Search
+import com.twitter.sdk.android.core.services.params.Geocode
 import kotlinx.android.synthetic.main.activity_twitter_map_visualization.*
+import java.lang.IllegalStateException
 
 
 class TwitterMapVisualizationActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
@@ -29,8 +38,10 @@ class TwitterMapVisualizationActivity : AppCompatActivity(), OnMapReadyCallback,
     }
 
     private val isLocationPermissionGranted: Boolean
-        get() = ContextCompat.checkSelfPermission(this.applicationContext,
-                android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        get() = ContextCompat.checkSelfPermission(
+            this.applicationContext,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
     private val locationManager by lazy { getSystemService(Context.LOCATION_SERVICE) as LocationManager }
 
@@ -57,11 +68,52 @@ class TwitterMapVisualizationActivity : AppCompatActivity(), OnMapReadyCallback,
             updateTweets(latLng)
             googleMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 5f))
             locationManager.removeUpdates(this)
+        } else {
+            TODO("Location not found .. handle this")
         }
     }
 
     private fun updateTweets(latLng: LatLng) {
+        val twitterApiClient = TwitterApiClient()
+        val tweets = twitterApiClient.searchService.tweets(
+            "",
+            Geocode(latLng.latitude, latLng.longitude, 50, Geocode.Distance.KILOMETERS),
+            null,
+            null,
+            "recent",
+            1000,
+            null,
+            null,
+            null,
+            true
+        )
 
+        tweets.enqueue(object : Callback<Search>() {
+            override fun success(result: Result<Search>?) {
+                if (result != null) {
+                    result.data.tweets
+                        .filter {
+                            it.coordinates != null
+                        }
+                        .forEach {
+                            Log.d("ASFD", it.text)
+
+                            val markerOptions = MarkerOptions().apply {
+                                position(LatLng(it.coordinates.latitude, it.coordinates.longitude))
+                                title("${it.text?.take(15)}..")
+                            }
+                            googleMap?.addMarker(markerOptions)
+                        }
+                } else {
+                    throw IllegalStateException("No tweets received")
+                }
+            }
+
+            override fun failure(exception: TwitterException?) {
+                TODO("not implemented")
+            }
+
+        })
     }
 
     override fun onProviderEnabled(provider: String?) {}
@@ -73,17 +125,19 @@ class TwitterMapVisualizationActivity : AppCompatActivity(), OnMapReadyCallback,
     @SuppressLint("MissingPermission")
     private fun getLocation() {
         locationManager.requestLocationUpdates(
-                LocationManager.NETWORK_PROVIDER,
-                0L,
-                1000f,
-                this
+            LocationManager.NETWORK_PROVIDER,
+            0L,
+            1000f,
+            this
         )
     }
 
     private fun requestLocationPermission() {
-        ActivityCompat.requestPermissions(this,
-                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
-                PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION)
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+            PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION
+        )
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
